@@ -4,21 +4,23 @@ using Random, StatsBase
 import Base.length
 using ProgressMeter
 ##
+# Define the World type
 struct World
     points::Array{Float64}
     areas::Array{Float64}
 end
 
-function get_areas(pts::Array{Float64})::Vector{Float64}
-    # Get the areas of the Voronoi cells
-    sort!(pts)
-    areas = [  0.5*(pts[i+1]-pts[i-1]) for i in 2:length(pts)-1 ]
-    prepend!(areas,pts[1]+0.5*(pts[2]-pts[1]))
-    push!(areas,1.0-pts[end]+0.5*(pts[end]-pts[end-1]))
-    return areas
-end
+"""
+    World(pts::Array{Float64})
 
+Creates a new `World` object with the given points.
 
+# Arguments
+- `pts::Array{Float64}`: An array of floating point numbers representing the points in the world.
+
+# Returns
+A `World` object initialized with the provided points.
+"""
 function World(pts::Array{Float64})
     if length(pts)==1
         return World(pts,[1.0])
@@ -28,6 +30,18 @@ function World(pts::Array{Float64})
     return World(pts, areas)
 end
 
+"""
+    World(N::Int, distribution=:uniform)
+
+Creates a new world for the election model.
+
+# Arguments
+- `N::Int`: The number of points in the world.
+- `distribution`: The type of distribution to use for initializing the points. Defaults to `:uniform`.
+
+# Returns
+A new world object initialized with the specified number of entities and distribution type.
+"""
 function World(N::Int,distribution=:uniform)
     if distribution==:uniform
         pts = sort(rand(N))
@@ -39,6 +53,16 @@ function World(N::Int,distribution=:uniform)
 end
 
 Base.length(world::World) = length(world.points)
+
+# Get the areas of the Voronoi cells given the points
+function get_areas(pts::Array{Float64})::Vector{Float64}
+    # Get the areas of the Voronoi cells
+    sort!(pts)
+    areas = [  0.5*(pts[i+1]-pts[i-1]) for i in 2:length(pts)-1 ]
+    prepend!(areas,pts[1]+0.5*(pts[2]-pts[1]))
+    push!(areas,1.0-pts[end]+0.5*(pts[end]-pts[end-1]))
+    return areas
+end
 
 function remove_point!(world::World, i::Int)
     n=length(world.points);
@@ -70,26 +94,6 @@ function remove_point!(world::World, i::Int)
     return vals
 end
 
-function evolve_backwards(world::World)::World
-    good_sample=false
-    count=0
-    while !good_sample
-        x=rand()
-        pts=copy(world.points)
-        push!(pts,x)
-        sort!(pts)
-        areas=get_areas(pts);
-        i=findall(pts.==x)[1]
-        looser=argmin(areas)
-        if i==looser
-            good_sample=true
-            return World(pts,areas)
-        end
-        count+=1
-        #@show count
-    end
-end
-
 function transpose_winners(winners)
     transp=[]
     for i in 1:length(winners[1])
@@ -117,6 +121,12 @@ function get_stats(winners)
     return (mean=means,stdev=stdev)
 end
 
+"""
+    run_election!(world::World,num=1)
+
+Run an election simulation within the given `world` object.
+The number of elections run is set by the `num` argument.
+"""
 function run_election!(world::World,num=1)
     vals=[]
     for i in 1:num
@@ -127,6 +137,20 @@ function run_election!(world::World,num=1)
     return vals
 end
 
+"""
+    run_election_choose!(world::World, num::Int=1, choose::Int=2)
+
+Run an the variation on the election simulation within the given `world` a collection of random points 
+are compared rather than taking the global minimum.
+
+# Arguments
+- `world::World`: The world object where the election simulation will be run.
+- `num::Int=1`: The number of elections that should be run. Defaults to 1.
+- `choose::Int=2`: The number of random points that should be compared. Defaults to 2.
+
+# Returns
+- Nothing. This function modifies the `world` object in place.
+"""
 function run_election_choose!(world::World,num=1,choose=2)
     vals=[]
     for i in 1:num
@@ -139,7 +163,7 @@ function run_election_choose!(world::World,num=1,choose=2)
     return vals
 end
 
-function plot_winners(winners)
+function plot_winners(winners, show=true)
     density([w[1] for w in winners], label="Winners", xlabel="Winning point", 
     ylabel="Density", title="Density of winning points")
     if length(winners[1])>1
@@ -148,7 +172,34 @@ function plot_winners(winners)
             ylabel="Density", title="Density of winning points",legend=false)
         end 
     end
-   # plot!()
+   if show 
+    plot!()
+   end
+end
+
+"""
+    evolve_backwards(world::World)::World
+
+This was an experiential attempt to evolve backwards in time. If does not work.
+"""
+function evolve_backwards(world::World)::World
+    good_sample=false
+    count=0
+    while !good_sample
+        x=rand()
+        pts=copy(world.points)
+        push!(pts,x)
+        sort!(pts)
+        areas=get_areas(pts);
+        i=findall(pts.==x)[1]
+        looser=argmin(areas)
+        if i==looser
+            good_sample=true
+            return World(pts,areas)
+        end
+        count+=1
+        #@show count
+    end
 end
 ##
 using Plots
